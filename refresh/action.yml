@@ -1,0 +1,53 @@
+name: "Instagram Token Refresh"
+description: >-
+  Refresh a long-lived Instagram Platform API token (60-day life; refreshing
+  resets the clock) and write it back to a repo secret. Run weekly — monthly
+  leaves 61–62-day gaps between runs, longer than the token life, so a single
+  missed run could strand the token.
+author: "Hudson Creations"
+branding:
+  icon: "refresh-cw"
+  color: "purple"
+
+inputs:
+  token:
+    description: "The current long-lived token — pass the same repo secret this action updates."
+    required: true
+  github-pat:
+    description: >-
+      Fine-grained PAT scoped to the target repo only, with "Secrets"
+      read/write — required because a workflow's default GITHUB_TOKEN cannot
+      modify secrets. Pass a repo secret.
+    required: true
+  secret-name:
+    description: "Name of the repo secret to write the refreshed token into."
+    required: false
+    default: "INSTAGRAM_TOKEN"
+  repository:
+    description: "owner/repo whose secret is updated."
+    required: false
+    default: ${{ github.repository }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Refresh the long-lived token and update the secret
+      shell: bash
+      env:
+        INSTAGRAM_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.github-pat }}
+        SECRET_NAME: ${{ inputs.secret-name }}
+        TARGET_REPO: ${{ inputs.repository }}
+      run: |
+        gh secret list --repo "$TARGET_REPO" > /dev/null # fail fast if the PAT is dead/expired
+        resp=$(curl -sS --max-time 20 -G "https://graph.instagram.com/refresh_access_token" --data-urlencode "grant_type=ig_refresh_token" --data-urlencode "access_token=${INSTAGRAM_TOKEN}")
+        new_token=$(jq -r '.access_token // empty' <<< "$resp")
+        if [ -z "$new_token" ]; then
+          # Error responses carry no token, so echoing the error object is safe (and useful).
+          echo "::error::Token refresh failed: $(jq -c '.error // "unrecognized response shape"' <<< "$resp")"
+          exit 1
+        fi
+        echo "::add-mask::$new_token"
+        gh secret set "$SECRET_NAME" --repo "$TARGET_REPO" --body "$new_token"
+        expires=$(jq -r '.expires_in // 0' <<< "$resp")
+        echo "Token refreshed; expires in ${expires} seconds (~$(( expires / 86400 )) days)."

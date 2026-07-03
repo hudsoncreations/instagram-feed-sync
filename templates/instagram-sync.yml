@@ -1,0 +1,50 @@
+name: Instagram feed sync
+
+# Pulls the latest posts into the repo every 6 hours so the site's feed stays
+# current. A push only happens when posts actually changed — if your site
+# deploys on push to the default branch, the sync commit deploys it.
+#
+# Needs the INSTAGRAM_TOKEN secret (see the instagram-feed-sync repo's
+# docs/SETUP.md). If the token dies, this workflow fails and GitHub emails the
+# workflow author; the live site keeps serving the last synced feed, so there
+# is no visitor-facing breakage. Scheduled runs only fire from the default
+# branch.
+
+on:
+  schedule:
+    - cron: "17 2,8,14,20 * * *" # every 6h, off the top of the hour on purpose
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # commits the synced feed back to the repo
+
+concurrency: instagram-sync # never two syncs racing
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Path inputs below are the SvelteKit-flavoured defaults — override for
+      # your framework (e.g. Astro: src/data/instagram-feed.json +
+      # public/images/instagram). Keep the commit step's paths in sync.
+      - uses: hudsoncreations/instagram-feed-sync@v1
+        with:
+          token: ${{ secrets.INSTAGRAM_TOKEN }}
+          feed-json: src/lib/data/instagram-feed.json
+          image-dir: static/images/instagram
+
+      - name: Commit & push if the feed changed
+        run: |
+          if [ -n "$(git status --porcelain src/lib/data/instagram-feed.json static/images/instagram)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/lib/data/instagram-feed.json static/images/instagram
+            git commit -m "chore: sync Instagram feed"
+            git pull --rebase
+            git push
+          else
+            echo "No feed changes to commit."
+          fi

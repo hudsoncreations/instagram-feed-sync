@@ -1,0 +1,28 @@
+name: Instagram token refresh
+
+# Instagram long-lived tokens expire after 60 days; refreshing resets the clock
+# (tokens only need to be >24h old to be refreshable). Runs weekly, giving ~8
+# attempts per token lifetime — even several consecutive failures still leave
+# weeks of runway, and every failure emails the workflow author.
+#
+# Needs two repo secrets (see the instagram-feed-sync repo's docs/SETUP.md):
+#   INSTAGRAM_TOKEN    the long-lived token (updated in place by this job)
+#   SECRETS_ADMIN_PAT  fine-grained PAT, this repo only, "Secrets" read/write
+# Scheduled runs only fire from the default branch.
+
+on:
+  schedule:
+    - cron: "43 3 * * 1" # 03:43 UTC every Monday
+  workflow_dispatch: {}
+
+permissions: {} # job uses only the PAT, never GITHUB_TOKEN
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: hudsoncreations/instagram-feed-sync/refresh@v1
+        with:
+          token: ${{ secrets.INSTAGRAM_TOKEN }}
+          github-pat: ${{ secrets.SECRETS_ADMIN_PAT }}

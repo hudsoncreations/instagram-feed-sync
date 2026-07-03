@@ -1,0 +1,59 @@
+name: "Instagram Feed Sync"
+description: >-
+  Sync an Instagram Business/Creator account's latest posts into a static-site
+  repo as first-party images + a committed feed.json, via the official
+  Instagram Platform API. No widget vendor, no third-party requests from
+  visitors, no view caps.
+author: "Hudson Creations"
+branding:
+  icon: "instagram"
+  color: "purple"
+
+inputs:
+  token:
+    description: "Long-lived Instagram Platform API access token — pass a repo secret, never a literal."
+    required: true
+  feed-json:
+    description: "Path (in the calling repo) to write the feed JSON."
+    required: false
+    default: "src/lib/data/instagram-feed.json"
+  image-dir:
+    description: "Directory (in the calling repo) to write post images into."
+    required: false
+    default: "static/images/instagram"
+  image-public-path:
+    description: "Public URL prefix the deployed site serves image-dir from."
+    required: false
+    default: "/images/instagram"
+  post-count:
+    description: "How many latest posts to keep."
+    required: false
+    default: "12"
+  api-version:
+    description: "Instagram Graph API version."
+    required: false
+    default: "v23.0"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    # sharp (the image optimizer) comes from THIS repo's lockfile — pinned and
+    # Dependabot-tracked here, so consumer repos carry no dependency at all.
+    - name: Install the action's locked dependencies
+      shell: bash
+      run: npm ci --prefix "$GITHUB_ACTION_PATH" --no-audit --no-fund
+
+    - name: Sync feed from Instagram
+      shell: bash
+      env:
+        INSTAGRAM_TOKEN: ${{ inputs.token }}
+        IG_FEED_JSON: ${{ inputs.feed-json }}
+        IG_IMAGE_DIR: ${{ inputs.image-dir }}
+        IG_IMAGE_PUBLIC: ${{ inputs.image-public-path }}
+        IG_POST_COUNT: ${{ inputs.post-count }}
+        IG_API_VERSION: ${{ inputs.api-version }}
+      run: node "$GITHUB_ACTION_PATH/sync.mjs"

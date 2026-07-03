@@ -1,0 +1,16 @@
+{
+  "name": "instagram-feed-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Action: sync an Instagram account's latest posts into a static-site repo as first-party images + a committed feed.json (official Instagram Platform API).",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
