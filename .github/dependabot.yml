@@ -1,0 +1,13 @@
+# Keep the action's own dependencies current: sharp (npm) and the runner
+# actions used by action.yml / ci.yml. Remember: merged bumps only reach
+# consumers when a release is cut and the v1 tag is moved.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
