@@ -1,6 +1,6 @@
 name: Instagram feed sync
 
-# Pulls the latest posts into the repo every 6 hours so the site's feed stays
+# Pulls the latest posts into the repo once a day so the site's feed stays
 # current. A push only happens when posts actually changed — if your site
 # deploys on push to the default branch, the sync commit deploys it.
 #
@@ -12,7 +12,11 @@ name: Instagram feed sync
 
 on:
   schedule:
-    - cron: "17 2,8,14,20 * * *" # every 6h, off the top of the hour on purpose
+    # Once daily, off the top of the hour on purpose. Don't sync more often
+    # than the site really needs: frequent API calls from ever-changing GitHub
+    # runner IPs help trigger Meta account security checkpoints that block all
+    # API access ("API access blocked", code 200 — see docs/SETUP.md).
+    - cron: "17 8 * * *"
   workflow_dispatch: {}
 
 permissions:

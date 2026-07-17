@@ -51,5 +51,26 @@ The refresh workflow writes the new token back into the repo's secrets, which th
 - **Token dead?** (client changed password, revoked the app, or refresh missed the 60-day window — expired tokens can't be refreshed): repeat step 4 + `gh secret set INSTAGRAM_TOKEN`. The live site keeps serving the last synced feed meanwhile; nothing visitor-facing breaks.
 - **Refresh endpoint** (what the refresh action calls): `GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=…` — returns a fresh 60-day token; the token must be >24 h old.
 - **Media endpoint** (what the sync action calls): `GET https://graph.instagram.com/{version}/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit={n}`
-- **Rate limits:** 200 calls/hour per account — a 6-hourly sync uses 4/day.
+- **Rate limits:** 200 calls/hour per account — a daily sync uses 1/day.
 - **Next client:** steps 3–6 against the same app.
+
+## Troubleshooting: "API access blocked" (OAuthException code 200)
+
+Sync **and** refresh both suddenly fail with
+`{"error":{"message":"API access blocked.","type":"OAuthException","code":200}}`.
+
+This is not an expired token (that's code 190) — Meta has put an account-level
+**security checkpoint** on the client's Instagram account, freezing all API access until
+a human logs in and passes the check. Likely contributor: API calls from GitHub-hosted
+runners arrive from a different datacenter IP in a different location every run, which
+looks suspicious to Meta (hence the once-daily default schedule in the templates —
+happened twice to bellezza-crosby, 2026-06 and 2026-07).
+
+**Recovery:** log into the client's Instagram account, complete the verification, then
+manually re-run both workflows (`gh workflow run …`). The existing token works again once
+the checkpoint clears — no regeneration needed. Meanwhile the live site keeps serving the
+last synced feed, so the failure emails are safe to sit on.
+
+**Prevention:** keep 2FA enabled on the client's account with current email/phone
+(accounts Meta considers vulnerable get checkpointed far more often), and keep the sync
+schedule modest.
